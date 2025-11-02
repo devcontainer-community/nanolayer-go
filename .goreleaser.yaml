@@ -22,9 +22,9 @@ builds:
     ldflags:
       # Inject version information at build time
       - -s -w
-      - -X github.com/devcontainer-community/nanolayer-go/cmd.Version={{.Version}}
-      - -X github.com/devcontainer-community/nanolayer-go/cmd.Commit={{.Commit}}
-      - -X github.com/devcontainer-community/nanolayer-go/cmd.Date={{.Date}}
+      - -X github.com/devcontainer-community/nanolayer-go/internal.Version={{.Version}}
+      - -X github.com/devcontainer-community/nanolayer-go/internal.Commit={{.Commit}}
+      - -X github.com/devcontainer-community/nanolayer-go/internal.Date={{.Date}}
 
 archives:
   - id: default

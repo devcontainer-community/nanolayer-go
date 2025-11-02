@@ -3,14 +3,8 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/devcontainer-community/nanolayer-go/internal"
 	"github.com/spf13/cobra"
-)
-
-var (
-	// Version information - set via ldflags at build time
-	Version = "dev"
-	Commit  = "none"
-	Date    = "unknown"
 )
 
 var versionCmd = &cobra.Command{
@@ -18,9 +12,9 @@ var versionCmd = &cobra.Command{
 	Short: "Print the version information",
 	Long:  `Display the version, commit hash, and build date of nanolayer.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("nanolayer version %s\n", Version)
-		fmt.Printf("commit: %s\n", Commit)
-		fmt.Printf("built at: %s\n", Date)
+		fmt.Printf("nanolayer version %s\n", internal.Version)
+		fmt.Printf("commit: %s\n", internal.Commit)
+		fmt.Printf("built at: %s\n", internal.Date)
 	},
 }
 

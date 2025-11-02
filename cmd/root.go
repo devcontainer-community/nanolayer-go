@@ -8,6 +8,7 @@ import (
 
 	"github.com/devcontainer-community/nanolayer-go/cmd/install"
 	"github.com/devcontainer-community/nanolayer-go/cmd/system"
+	"github.com/devcontainer-community/nanolayer-go/internal"
 )
 
 var rootCmd = &cobra.Command{
@@ -18,9 +19,9 @@ var rootCmd = &cobra.Command{
 		// Check for version flag
 		versionFlag, _ := cmd.Flags().GetBool("version")
 		if versionFlag {
-			fmt.Printf("nanolayer version %s\n", Version)
-			fmt.Printf("commit: %s\n", Commit)
-			fmt.Printf("built at: %s\n", Date)
+			fmt.Printf("nanolayer version %s\n", internal.Version)
+			fmt.Printf("commit: %s\n", internal.Commit)
+			fmt.Printf("built at: %s\n", internal.Date)
 			return
 		}
 		// If no subcommand is provided, show help
