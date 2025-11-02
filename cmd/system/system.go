@@ -16,7 +16,7 @@ var SystemCmd = &cobra.Command{
 		fmt.Printf("Architecture=%s\n", linuxsystem.GetArchitecture())
 		fmt.Printf("Distribution=%s\n", linuxsystem.GetDistribution())
 		fmt.Printf("HasRootPrivileges=%t\n", linuxsystem.HasRootPrivileges())
-		fmt.Printf("nanolayerVersion=%s\n", cmd.Version)
+		fmt.Printf("NanolayerVersion=%s\n", cmd.Version)
 	},
 }
 
