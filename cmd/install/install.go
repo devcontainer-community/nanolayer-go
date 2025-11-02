@@ -3,6 +3,7 @@ package install
 import (
 	"github.com/spf13/cobra"
 
+	"github.com/devcontainer-community/nanolayer-go/cmd/install/apk"
 	"github.com/devcontainer-community/nanolayer-go/cmd/install/github"
 
 	"github.com/devcontainer-community/feature-installer/cmd/feature/install"
@@ -20,6 +21,7 @@ var InstallCmd = &cobra.Command{
 
 func init() {
 	// Add subcommands here
+	InstallCmd.AddCommand(apk.ApkCmd)
 	InstallCmd.AddCommand(github.GithubCmd)
 
 	// Rename the devcontainer feature install command
