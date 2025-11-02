@@ -31,9 +31,15 @@ var GithubCmd = &cobra.Command{
 			return
 		}
 		assetName := parts[1]
-		fmt.Printf("Derived asset name: %s\n", assetName)
+		if flagAssetName, _ := cmd.Flags().GetString("asset-name"); flagAssetName != "" {
+			assetName = flagAssetName
+		}
+		fmt.Printf("Using asset name: %s\n", assetName)
 
 		version := "latest"
+		if flagVersion, _ := cmd.Flags().GetString("asset-version"); flagVersion != "" {
+			version = flagVersion
+		}
 		fmt.Printf("Using version: %s\n", version)
 
 		assetUrlTemplate, _ := cmd.Flags().GetString("asset-url-template")
@@ -90,6 +96,8 @@ var GithubCmd = &cobra.Command{
 
 func init() {
 	GithubCmd.Flags().String("asset-url-template", "", "Custom asset URL template (e.g., https://github.com/${Repo}/releases/download/v${Version}/${AssetName}_${Version}_Linux_${Architecture}.tar.gz)")
+	GithubCmd.Flags().String("asset-name", "", "Override the asset name derived from the repository (e.g., --asset-name gum)")
+	GithubCmd.Flags().String("asset-version", "", "Override the version used when fetching the asset (e.g., --asset-version 1.10.3)")
 	GithubCmd.Flags().StringArray("architecture-replacement", []string{}, "Architecture replacement pairs (e.g., --architecture-replacement 'arm64 aarch64' --architecture-replacement 'amd64 intel')")
 	GithubCmd.Flags().StringArray("file-destination", []string{}, "File destination mappings (e.g., --file-destination '*/gum /usr/local/bin/gum')")
 }
