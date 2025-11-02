@@ -154,10 +154,9 @@ ensure_nanolayer() {
             bin_filename=nanolayer-"$arch"
 
             # clean download will minimize leftover in case a downloaderlike wget or curl need to be installed
-            clean_download https://github.com/devcontainer-community/nanolayer-go/releases/download/$required_version/$bin_filename $tmp_dir/$bin_filename
+            clean_download https://github.com/devcontainer-community/nanolayer-go/releases/download/$required_version/$bin_filename $tmp_dir/nanolayer
 
-            mv $tmp_dir/$bin_filename $tmp_dir/nanolayer
-            chmod a+x $tmp_dir/nanolayer
+            chmod +x $tmp_dir/nanolayer
             __nanolayer_location=$tmp_dir/nanolayer
 
 
