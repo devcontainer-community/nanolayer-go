@@ -1,0 +1,16 @@
+{
+    "name": "Go Dev Environment",
+    "image": "mcr.microsoft.com/devcontainers/go:1-1.25-bullseye",
+    "features": {},
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "golang.Go",
+                "ms-vscode.vscode-json",
+                "ms-vscode.vscode-yaml"
+            ]
+        }
+    },
+    "forwardPorts": [],
+    "postCreateCommand": "go mod tidy"
+}
