@@ -86,6 +86,35 @@ func TestCopyDir(t *testing.T) {
 		t.Fatalf("failed to set top-level file mode: %v", err)
 	}
 
+	hiddenFile := filepath.Join(srcRoot, ".hidden-config")
+	hiddenContent := []byte("hidden values")
+	if err := os.WriteFile(hiddenFile, hiddenContent, 0o640); err != nil {
+		t.Fatalf("failed to create hidden file: %v", err)
+	}
+	if err := os.Chmod(hiddenFile, 0o640); err != nil {
+		t.Fatalf("failed to set hidden file mode: %v", err)
+	}
+
+	hiddenDir := filepath.Join(srcRoot, ".hidden", "configs")
+	if err := os.MkdirAll(hiddenDir, 0o765); err != nil {
+		t.Fatalf("failed to create hidden directory tree: %v", err)
+	}
+	if err := os.Chmod(filepath.Join(srcRoot, ".hidden"), 0o765); err != nil {
+		t.Fatalf("failed to set hidden directory mode: %v", err)
+	}
+	if err := os.Chmod(hiddenDir, 0o754); err != nil {
+		t.Fatalf("failed to set hidden subdirectory mode: %v", err)
+	}
+
+	hiddenDirFile := filepath.Join(hiddenDir, "config.yml")
+	hiddenDirContent := []byte("secret: true\n")
+	if err := os.WriteFile(hiddenDirFile, hiddenDirContent, 0o660); err != nil {
+		t.Fatalf("failed to create hidden dir file: %v", err)
+	}
+	if err := os.Chmod(hiddenDirFile, 0o660); err != nil {
+		t.Fatalf("failed to set hidden dir file mode: %v", err)
+	}
+
 	nestedDir := filepath.Join(srcRoot, "nested", "deeper")
 	if err := os.MkdirAll(nestedDir, 0o777); err != nil {
 		t.Fatalf("failed to create nested directory: %v", err)
@@ -106,6 +135,16 @@ func TestCopyDir(t *testing.T) {
 		t.Fatalf("failed to set nested file mode: %v", err)
 	}
 
+	symlinkToTop := filepath.Join(srcRoot, "link-to-top")
+	if err := os.Symlink("top.txt", symlinkToTop); err != nil {
+		t.Fatalf("failed to create symlink to top file: %v", err)
+	}
+
+	symlinkToHidden := filepath.Join(srcRoot, "link-to-hidden")
+	if err := os.Symlink(".hidden", symlinkToHidden); err != nil {
+		t.Fatalf("failed to create symlink to hidden directory: %v", err)
+	}
+
 	dstRoot := filepath.Join(t.TempDir(), "copy")
 
 	if err := CopyDir(srcRoot, dstRoot); err != nil {
@@ -118,6 +157,8 @@ func TestCopyDir(t *testing.T) {
 		dst string
 	}{
 		{src: srcRoot, dst: dstRoot},
+		{src: filepath.Join(srcRoot, ".hidden"), dst: filepath.Join(dstRoot, ".hidden")},
+		{src: filepath.Join(srcRoot, ".hidden", "configs"), dst: filepath.Join(dstRoot, ".hidden", "configs")},
 		{src: filepath.Join(srcRoot, "nested"), dst: filepath.Join(dstRoot, "nested")},
 		{src: filepath.Join(srcRoot, "nested", "deeper"), dst: filepath.Join(dstRoot, "nested", "deeper")},
 	}
@@ -154,7 +195,17 @@ func TestCopyDir(t *testing.T) {
 		dst string
 	}{
 		{src: topFile, dst: filepath.Join(dstRoot, "top.txt")},
+		{src: hiddenFile, dst: filepath.Join(dstRoot, ".hidden-config")},
+		{src: hiddenDirFile, dst: filepath.Join(dstRoot, ".hidden", "configs", "config.yml")},
 		{src: nestedFile, dst: filepath.Join(dstRoot, "nested", "deeper", "data.txt")},
+	}
+
+	symlinkChecks := []struct {
+		src string
+		dst string
+	}{
+		{src: symlinkToTop, dst: filepath.Join(dstRoot, "link-to-top")},
+		{src: symlinkToHidden, dst: filepath.Join(dstRoot, "link-to-hidden")},
 	}
 
 	for _, check := range fileChecks {
@@ -192,6 +243,44 @@ func TestCopyDir(t *testing.T) {
 		}
 		if string(dstContent) != string(srcContent) {
 			t.Fatalf("content mismatch for %q: got %q, want %q", check.dst, string(dstContent), string(srcContent))
+		}
+	}
+
+	for _, check := range symlinkChecks {
+		srcInfo, err := os.Lstat(check.src)
+		if err != nil {
+			t.Fatalf("failed to lstat source symlink %q: %v", check.src, err)
+		}
+		dstInfo, err := os.Lstat(check.dst)
+		if err != nil {
+			t.Fatalf("failed to lstat destination symlink %q: %v", check.dst, err)
+		}
+		if srcInfo.Mode()&os.ModeSymlink == 0 {
+			t.Fatalf("source %q is not a symlink", check.src)
+		}
+		if dstInfo.Mode()&os.ModeSymlink == 0 {
+			t.Fatalf("destination %q is not a symlink", check.dst)
+		}
+
+		srcTarget, err := os.Readlink(check.src)
+		if err != nil {
+			t.Fatalf("failed to read source symlink %q: %v", check.src, err)
+		}
+		dstTarget, err := os.Readlink(check.dst)
+		if err != nil {
+			t.Fatalf("failed to read destination symlink %q: %v", check.dst, err)
+		}
+		if srcTarget != dstTarget {
+			t.Fatalf("symlink target mismatch for %q: got %q, want %q", check.dst, dstTarget, srcTarget)
+		}
+
+		srcUID, srcGID := ownershipFromInfo(t, srcInfo, check.src)
+		dstUID, dstGID := ownershipFromInfo(t, dstInfo, check.dst)
+		if srcUID != dstUID {
+			t.Fatalf("uid mismatch for symlink %q: got %d, want %d", check.dst, dstUID, srcUID)
+		}
+		if srcGID != dstGID {
+			t.Fatalf("gid mismatch for symlink %q: got %d, want %d", check.dst, dstGID, srcGID)
 		}
 	}
 }
