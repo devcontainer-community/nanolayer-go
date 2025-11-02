@@ -2,6 +2,7 @@ package github
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/devcontainer-community/nanolayer-go/internal/installers/github"
@@ -20,7 +21,7 @@ var GithubCmd = &cobra.Command{
 		// Add your GitHub installation logic here
 		if len(args) < 1 {
 			fmt.Println("Please provide a GitHub repository in the format 'owner/repo'.")
-			return
+			os.Exit(1)
 		}
 		repo := args[0]
 		fmt.Printf("Installing from GitHub repository: %s\n", repo)
@@ -87,7 +88,7 @@ var GithubCmd = &cobra.Command{
 			fileDestinations)
 		if err != nil {
 			fmt.Printf("Error during installation: %v\n", err)
-			return
+			os.Exit(1)
 		}
 		fmt.Println("Installation completed successfully!")
 
