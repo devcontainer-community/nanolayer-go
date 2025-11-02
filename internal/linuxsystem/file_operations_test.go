@@ -195,3 +195,55 @@ func TestCopyDir(t *testing.T) {
 		}
 	}
 }
+
+func TestCopyDirEmpty(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	srcRoot := filepath.Join(tmpDir, "empty-src")
+	if err := os.Mkdir(srcRoot, 0o751); err != nil {
+		t.Fatalf("failed to create source directory: %v", err)
+	}
+	if err := os.Chmod(srcRoot, 0o751); err != nil {
+		t.Fatalf("failed to set source directory mode: %v", err)
+	}
+
+	dstRoot := filepath.Join(tmpDir, "empty-dst")
+
+	if err := CopyDir(srcRoot, dstRoot); err != nil {
+		t.Fatalf("CopyDir returned error for empty directory: %v", err)
+	}
+
+	dstInfo, err := os.Stat(dstRoot)
+	if err != nil {
+		t.Fatalf("failed to stat destination directory: %v", err)
+	}
+	if !dstInfo.IsDir() {
+		t.Fatalf("destination %q is not a directory", dstRoot)
+	}
+
+	srcInfo, err := os.Stat(srcRoot)
+	if err != nil {
+		t.Fatalf("failed to stat source directory: %v", err)
+	}
+
+	if dstInfo.Mode().Perm() != srcInfo.Mode().Perm() {
+		t.Fatalf("permissions mismatch for empty directory copy: got %v, want %v", dstInfo.Mode().Perm(), srcInfo.Mode().Perm())
+	}
+
+	srcUID, srcGID := ownershipFromInfo(t, srcInfo, srcRoot)
+	dstUID, dstGID := ownershipFromInfo(t, dstInfo, dstRoot)
+	if srcUID != dstUID {
+		t.Fatalf("uid mismatch for empty directory copy: got %d, want %d", dstUID, srcUID)
+	}
+	if srcGID != dstGID {
+		t.Fatalf("gid mismatch for empty directory copy: got %d, want %d", dstGID, srcGID)
+	}
+
+	entries, err := os.ReadDir(dstRoot)
+	if err != nil {
+		t.Fatalf("failed to read destination directory: %v", err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("expected destination directory to be empty, found %d entries", len(entries))
+	}
+}
