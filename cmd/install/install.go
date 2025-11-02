@@ -4,6 +4,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/devcontainer-community/nanolayer-go/cmd/install/github"
+
+	"github.com/devcontainer-community/feature-installer/cmd/feature/install"
 )
 
 var InstallCmd = &cobra.Command{
@@ -19,4 +21,9 @@ var InstallCmd = &cobra.Command{
 func init() {
 	// Add subcommands here
 	InstallCmd.AddCommand(github.GithubCmd)
+
+	// Rename the devcontainer feature install command
+	devcontainerFeatureCmd := install.InstallCmd
+	devcontainerFeatureCmd.Use = "devcontainer-feature"
+	InstallCmd.AddCommand(devcontainerFeatureCmd)
 }

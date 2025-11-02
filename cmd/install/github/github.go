@@ -14,13 +14,12 @@ var GithubCmd = &cobra.Command{
 	Short: "Install packages from GitHub releases",
 	Long:  `Install packages and tools from GitHub releases.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("GitHub install command executed!")
 		if len(args) > 0 {
 			fmt.Printf("Arguments: %v\n", args)
 		}
 		// Add your GitHub installation logic here
 		if len(args) < 1 {
-			fmt.Println("Please provide a GitHub repository in the format 'owner/repo'.")
+			fmt.Println("Error: GitHub repository argument is required (format: owner/repo).")
 			os.Exit(1)
 		}
 		repo := args[0]
@@ -29,7 +28,7 @@ var GithubCmd = &cobra.Command{
 		parts := strings.Split(repo, "/")
 		if len(parts) != 2 {
 			fmt.Println("Error: Repository must be in the format 'owner/repo'.")
-			return
+			os.Exit(1)
 		}
 		assetName := parts[1]
 		if flagAssetName, _ := cmd.Flags().GetString("asset-name"); flagAssetName != "" {
@@ -59,7 +58,7 @@ var GithubCmd = &cobra.Command{
 			}
 		}
 		if len(architectureReplacements) > 0 {
-			fmt.Printf("Architecture replacements: %v\n", architectureReplacements)
+			fmt.Printf("Using architecture replacements: %v\n", architectureReplacements)
 		}
 
 		// Parse file destinations
@@ -77,7 +76,7 @@ var GithubCmd = &cobra.Command{
 			fileDestinations[fmt.Sprintf("*/%s", assetName)] = fmt.Sprintf("/usr/local/bin/%s", assetName)
 		}
 		if len(fileDestinations) > 0 {
-			fmt.Printf("File destinations: %v\n", fileDestinations)
+			fmt.Printf("Using file destinations: %v\n", fileDestinations)
 		}
 
 		err := github.DownloadAndInstallFromAssetUrl(repo,
