@@ -1,10 +1,41 @@
+//go:build unix
+
 package linuxsystem
 
 import (
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
+	"syscall"
 )
+
+func setOwnership(path string, info os.FileInfo) error {
+	stat, ok := info.Sys().(*syscall.Stat_t)
+	if !ok {
+		return nil
+	}
+
+	uid := int(stat.Uid)
+	gid := int(stat.Gid)
+
+	if err := os.Chown(path, uid, gid); err != nil {
+		if errors.Is(err, syscall.EPERM) || errors.Is(err, syscall.ENOTSUP) {
+			current, statErr := os.Stat(path)
+			if statErr != nil {
+				return statErr
+			}
+			if cur, ok := current.Sys().(*syscall.Stat_t); ok {
+				if int(cur.Uid) == uid && int(cur.Gid) == gid {
+					return nil
+				}
+			}
+		}
+		return err
+	}
+
+	return nil
+}
 
 // CopyDir recursively copies a directory from src to dst
 func CopyDir(src, dst string) error {
@@ -15,8 +46,15 @@ func CopyDir(src, dst string) error {
 	}
 
 	// Create destination directory
-	err = os.MkdirAll(dst, srcInfo.Mode())
-	if err != nil {
+	if err := os.MkdirAll(dst, srcInfo.Mode()); err != nil {
+		return err
+	}
+
+	if err := os.Chmod(dst, srcInfo.Mode()); err != nil {
+		return err
+	}
+
+	if err := setOwnership(dst, srcInfo); err != nil {
 		return err
 	}
 
@@ -32,14 +70,12 @@ func CopyDir(src, dst string) error {
 
 		if entry.IsDir() {
 			// Recursively copy subdirectory
-			err = CopyDir(srcPath, dstPath)
-			if err != nil {
+			if err := CopyDir(srcPath, dstPath); err != nil {
 				return err
 			}
 		} else {
 			// Copy file
-			err = CopyFile(srcPath, dstPath)
-			if err != nil {
+			if err := CopyFile(srcPath, dstPath); err != nil {
 				return err
 			}
 		}
@@ -71,6 +107,13 @@ func CopyFile(src, dst string) error {
 	defer dstFile.Close()
 
 	// Copy content
-	_, err = io.Copy(dstFile, srcFile)
-	return err
+	if _, err := io.Copy(dstFile, srcFile); err != nil {
+		return err
+	}
+
+	if err := os.Chmod(dst, srcInfo.Mode()); err != nil {
+		return err
+	}
+
+	return setOwnership(dst, srcInfo)
 }

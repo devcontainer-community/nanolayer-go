@@ -1,13 +1,21 @@
+//go:build unix
+
 package linuxsystem
 
 import (
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
 )
 
-func ownerPerm(mode os.FileMode) os.FileMode {
-	return mode.Perm() & 0o700
+func ownershipFromInfo(t *testing.T, info os.FileInfo, path string) (int, int) {
+	t.Helper()
+	stat, ok := info.Sys().(*syscall.Stat_t)
+	if !ok {
+		t.Fatalf("unsupported file info for %q", path)
+	}
+	return int(stat.Uid), int(stat.Gid)
 }
 
 func TestCopyFile(t *testing.T) {
@@ -15,10 +23,10 @@ func TestCopyFile(t *testing.T) {
 
 	src := filepath.Join(tmpDir, "source.txt")
 	content := []byte("first line\nsecond line")
-	if err := os.WriteFile(src, content, 0o640); err != nil {
+	if err := os.WriteFile(src, content, 0o666); err != nil {
 		t.Fatalf("failed to create source file: %v", err)
 	}
-	if err := os.Chmod(src, 0o640); err != nil {
+	if err := os.Chmod(src, 0o666); err != nil {
 		t.Fatalf("failed to set source file mode: %v", err)
 	}
 
@@ -48,40 +56,53 @@ func TestCopyFile(t *testing.T) {
 	if !dstInfo.Mode().IsRegular() {
 		t.Fatalf("destination is not a regular file, mode: %v", dstInfo.Mode())
 	}
-	if ownerPerm(dstInfo.Mode()) != ownerPerm(srcInfo.Mode()) {
-		t.Fatalf("destination owner permissions %v, want %v", ownerPerm(dstInfo.Mode()), ownerPerm(srcInfo.Mode()))
+	if dstInfo.Mode().Perm() != srcInfo.Mode().Perm() {
+		t.Fatalf("destination permissions %v, want %v", dstInfo.Mode().Perm(), srcInfo.Mode().Perm())
+	}
+
+	srcUID, srcGID := ownershipFromInfo(t, srcInfo, src)
+	dstUID, dstGID := ownershipFromInfo(t, dstInfo, dst)
+	if srcUID != dstUID {
+		t.Fatalf("destination uid %d, want %d", dstUID, srcUID)
+	}
+	if srcGID != dstGID {
+		t.Fatalf("destination gid %d, want %d", dstGID, srcGID)
 	}
 }
 
 func TestCopyDir(t *testing.T) {
 	srcRoot := t.TempDir()
 
+	if err := os.Chmod(srcRoot, 0o775); err != nil {
+		t.Fatalf("failed to set root directory mode: %v", err)
+	}
+
 	// Build a small directory tree with explicit permissions.
 	topFile := filepath.Join(srcRoot, "top.txt")
-	if err := os.WriteFile(topFile, []byte("top-level"), 0o644); err != nil {
+	if err := os.WriteFile(topFile, []byte("top-level"), 0o666); err != nil {
 		t.Fatalf("failed to create top-level file: %v", err)
 	}
-	if err := os.Chmod(topFile, 0o644); err != nil {
+	if err := os.Chmod(topFile, 0o666); err != nil {
 		t.Fatalf("failed to set top-level file mode: %v", err)
 	}
 
 	nestedDir := filepath.Join(srcRoot, "nested", "deeper")
-	if err := os.MkdirAll(nestedDir, 0o750); err != nil {
+	if err := os.MkdirAll(nestedDir, 0o777); err != nil {
 		t.Fatalf("failed to create nested directory: %v", err)
 	}
-	if err := os.Chmod(filepath.Join(srcRoot, "nested"), 0o710); err != nil {
+	if err := os.Chmod(filepath.Join(srcRoot, "nested"), 0o773); err != nil {
 		t.Fatalf("failed to set nested directory mode: %v", err)
 	}
-	if err := os.Chmod(nestedDir, 0o730); err != nil {
+	if err := os.Chmod(nestedDir, 0o771); err != nil {
 		t.Fatalf("failed to set deeper directory mode: %v", err)
 	}
 
 	nestedFile := filepath.Join(nestedDir, "data.txt")
 	nestedContent := []byte("nested contents\nacross lines")
-	if err := os.WriteFile(nestedFile, nestedContent, 0o660); err != nil {
+	if err := os.WriteFile(nestedFile, nestedContent, 0o662); err != nil {
 		t.Fatalf("failed to create nested file: %v", err)
 	}
-	if err := os.Chmod(nestedFile, 0o660); err != nil {
+	if err := os.Chmod(nestedFile, 0o662); err != nil {
 		t.Fatalf("failed to set nested file mode: %v", err)
 	}
 
@@ -113,8 +134,17 @@ func TestCopyDir(t *testing.T) {
 		if !dstInfo.IsDir() {
 			t.Fatalf("destination %q is not a directory", check.dst)
 		}
-		if ownerPerm(dstInfo.Mode()) != ownerPerm(srcInfo.Mode()) {
-			t.Fatalf("owner permissions mismatch for directory %q: got %v, want %v", check.dst, ownerPerm(dstInfo.Mode()), ownerPerm(srcInfo.Mode()))
+		if dstInfo.Mode().Perm() != srcInfo.Mode().Perm() {
+			t.Fatalf("permissions mismatch for directory %q: got %v, want %v", check.dst, dstInfo.Mode().Perm(), srcInfo.Mode().Perm())
+		}
+
+		srcUID, srcGID := ownershipFromInfo(t, srcInfo, check.src)
+		dstUID, dstGID := ownershipFromInfo(t, dstInfo, check.dst)
+		if srcUID != dstUID {
+			t.Fatalf("uid mismatch for directory %q: got %d, want %d", check.dst, dstUID, srcUID)
+		}
+		if srcGID != dstGID {
+			t.Fatalf("gid mismatch for directory %q: got %d, want %d", check.dst, dstGID, srcGID)
 		}
 	}
 
@@ -139,8 +169,17 @@ func TestCopyDir(t *testing.T) {
 		if !dstInfo.Mode().IsRegular() {
 			t.Fatalf("destination %q is not a regular file", check.dst)
 		}
-		if ownerPerm(dstInfo.Mode()) != ownerPerm(srcInfo.Mode()) {
-			t.Fatalf("owner permissions mismatch for file %q: got %v, want %v", check.dst, ownerPerm(dstInfo.Mode()), ownerPerm(srcInfo.Mode()))
+		if dstInfo.Mode().Perm() != srcInfo.Mode().Perm() {
+			t.Fatalf("permissions mismatch for file %q: got %v, want %v", check.dst, dstInfo.Mode().Perm(), srcInfo.Mode().Perm())
+		}
+
+		srcUID, srcGID := ownershipFromInfo(t, srcInfo, check.src)
+		dstUID, dstGID := ownershipFromInfo(t, dstInfo, check.dst)
+		if srcUID != dstUID {
+			t.Fatalf("uid mismatch for file %q: got %d, want %d", check.dst, dstUID, srcUID)
+		}
+		if srcGID != dstGID {
+			t.Fatalf("gid mismatch for file %q: got %d, want %d", check.dst, dstGID, srcGID)
 		}
 
 		srcContent, err := os.ReadFile(check.src)
