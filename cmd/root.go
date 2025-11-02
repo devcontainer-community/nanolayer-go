@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/devcontainer-community/nanolayer-go/cmd/install"
+	"github.com/devcontainer-community/nanolayer-go/cmd/system"
 )
 
 var rootCmd = &cobra.Command{
@@ -37,4 +38,5 @@ func Execute() {
 func init() {
 	// Global flags can be added here
 	rootCmd.AddCommand(install.InstallCmd)
+	rootCmd.AddCommand(system.SystemCmd)
 }

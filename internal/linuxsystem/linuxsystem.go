@@ -2,7 +2,6 @@ package linuxsystem
 
 import (
 	"bufio"
-	"fmt"
 	"os"
 	"strings"
 
@@ -156,7 +155,6 @@ func IsLinux() bool {
 		}
 		sysname = append(sysname, byte(b))
 	}
-	fmt.Printf("sysname: %s\n", string(sysname))
 	return string(sysname) == "Linux"
 }
 
