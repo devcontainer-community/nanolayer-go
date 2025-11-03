@@ -115,54 +115,13 @@ func AddRepositoryKey(url string, destination string, deamor bool) error {
 
 	if deamor {
 		// Try to decode ASCII-armored OpenPGP blocks in pure Go to avoid
-		// requiring an external `gpg` binary. If decode succeeds, write
-		// the binary data; if not, fall back to writing the raw data (it may
+		// requiring an external `gpg` binary. If decode succeeds, use the
+		// binary data; if not, fall back to writing the raw data (it may
 		// already be a binary key).
 		if decoded, err := tryDearmor(data); err == nil {
-			// write decoded bytes atomically
-			tmpFile, err := os.CreateTemp(destDir, "apt-key-*")
-			if err != nil {
-				return fmt.Errorf("failed to create temp file in %s: %w", destDir, err)
-			}
-			tmpName := tmpFile.Name()
-			defer func() {
-				_ = tmpFile.Close()
-				_ = os.Remove(tmpName)
-			}()
-
-			if _, err := tmpFile.Write(decoded); err != nil {
-				return fmt.Errorf("failed to write dearmored key to temp file: %w", err)
-			}
-			if err := tmpFile.Sync(); err != nil {
-				_ = tmpFile.Close()
-				return fmt.Errorf("failed to sync temp key file: %w", err)
-			}
-			if err := tmpFile.Close(); err != nil {
-				return fmt.Errorf("failed to close temp key file: %w", err)
-			}
-
-			if err := os.Rename(tmpName, destination); err != nil {
-				in, err2 := os.Open(tmpName)
-				if err2 != nil {
-					return fmt.Errorf("failed to move dearmored key to destination: %w", err)
-				}
-				defer in.Close()
-				out, err2 := os.Create(destination)
-				if err2 != nil {
-					return fmt.Errorf("failed to create destination file %s: %w", destination, err2)
-				}
-				if _, err2 = io.Copy(out, in); err2 != nil {
-					out.Close()
-					return fmt.Errorf("failed to copy dearmored key to destination: %w", err2)
-				}
-				if err2 = out.Close(); err2 != nil {
-					return fmt.Errorf("failed to close destination file %s: %w", destination, err2)
-				}
-			}
-			return nil
+			data = decoded // Use the dearmored (binary) data
 		}
-
-		// If dearmor failed (input likely already binary), continue and write raw data below.
+		// If dearmor failed, the data might already be binary, so continue with original data
 	}
 
 	// Write atomically: write to a temp file in same dir then rename
