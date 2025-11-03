@@ -332,16 +332,36 @@ func UpdatePackageLists() error {
 }
 
 func RunUpgrade() error {
-	// Implementation for running apt-get upgrade
+	// Run `apt-get upgrade`
+	cmd := exec.Command("apt-get", "upgrade", "-y")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to upgrade packages: %w\nOutput: %s", err, output)
+	}
 	return nil
 }
 
-func RemovePackage(pkg string) error {
-	// Implementation for removing a package using apt-get
+func RemovePackage(packages []string) error {
+	// Run `apt-get remove -y <pkg>`
+	cmd := exec.Command("apt-get", append([]string{"remove", "-y"}, packages...)...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to remove packages: %w\nOutput: %s", err, output)
+	}
 	return nil
 }
 
 func IsPackageInstalled(pkg string) (bool, error) {
 	// Implementation for checking if a package is installed
+	cmd := exec.Command("dpkg-query", "-W", "-f=${Status}", pkg)
+	output, err := cmd.Output()
+	if err != nil {
+		// If dpkg-query returns an error, the package is likely not installed
+		return false, nil
+	}
+	status := strings.TrimSpace(string(output))
+	if strings.HasPrefix(status, "install ok installed") {
+		return true, nil
+	}
 	return false, nil
 }
