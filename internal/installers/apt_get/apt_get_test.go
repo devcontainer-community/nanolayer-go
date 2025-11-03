@@ -172,3 +172,46 @@ func TestAddAptRepositoryArchitectureMapping(t *testing.T) {
 	
 	t.Logf("Architecture %s correctly mapped to %s", architecture, expectedArch)
 }
+
+func TestAddRepositoryKeyPermissions(t *testing.T) {
+	// Skip this test on non-Debian systems
+	if !isDebianLike() {
+		t.Skip("skipping test on non-Debian system")
+	}
+	
+	// Create a temporary directory for testing
+	tmpDir := t.TempDir()
+	keyFile := filepath.Join(tmpDir, "test-key.gpg")
+	
+	// Create a simple test key content (ASCII-armored format)
+	testKeyContent := `-----BEGIN PGP PUBLIC KEY BLOCK-----
+
+mQENBGKhNAoBCAC7JQhY...
+-----END PGP PUBLIC KEY BLOCK-----`
+	
+	// Create a temporary file with the test key
+	testKeyPath := filepath.Join(tmpDir, "test-key.asc")
+	if err := os.WriteFile(testKeyPath, []byte(testKeyContent), 0o644); err != nil {
+		t.Fatalf("failed to create test key file: %v", err)
+	}
+	
+	// Test with file:// URL and dearmor=true
+	err := AddRepositoryKey("file://"+testKeyPath, keyFile, true)
+	if err != nil {
+		t.Fatalf("AddRepositoryKey failed: %v", err)
+	}
+	
+	// Check that the file exists
+	stat, err := os.Stat(keyFile)
+	if err != nil {
+		t.Fatalf("key file was not created: %v", err)
+	}
+	
+	// Check that the permissions are correct (0644 = -rw-r--r--)
+	expectedMode := os.FileMode(0o644)
+	if stat.Mode().Perm() != expectedMode {
+		t.Fatalf("incorrect permissions on key file: got %v, expected %v", stat.Mode().Perm(), expectedMode)
+	}
+	
+	t.Logf("✓ Key file created with correct permissions: %v", stat.Mode().Perm())
+}

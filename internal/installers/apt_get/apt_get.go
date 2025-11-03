@@ -45,7 +45,7 @@ func InstallPackage(pkg []string) error {
 
 	UpdatePackageLists()
 	// Build the command: apt-get install --no-cache <packages>
-	args := append([]string{"install", "--no-install-recommends"}, pkg...)
+	args := append([]string{"install", "-y", "--no-install-recommends"}, pkg...)
 	cmd := exec.Command("apt-get", args...)
 
 	// Capture output for error reporting
@@ -164,6 +164,11 @@ func AddRepositoryKey(url string, destination string, deamor bool) error {
 		if err2 = out.Close(); err2 != nil {
 			return fmt.Errorf("failed to close destination file %s: %w", destination, err2)
 		}
+	}
+
+	// Set proper permissions for keyring file (0644: -rw-r--r--)
+	if err := os.Chmod(destination, 0o644); err != nil {
+		return fmt.Errorf("failed to set permissions on key file %s: %w", destination, err)
 	}
 
 	return nil
