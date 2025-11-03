@@ -20,6 +20,12 @@ var AptCmd = &cobra.Command{
 
 		fmt.Printf("Installing packages: %v\n", args)
 
+		err_1 := aptget.AddRepositoryKey("https://pkg.cloudflareclient.com/pubkey.gpg", "/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg", true)
+		if err_1 != nil {
+			fmt.Printf("Error adding repository key: %v\n", err_1)
+			os.Exit(1)
+		}
+
 		err := aptget.InstallPackage(args)
 		if err != nil {
 			fmt.Printf("Error during installation: %v\n", err)
