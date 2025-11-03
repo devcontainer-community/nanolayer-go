@@ -358,6 +358,12 @@ func AddAptRepository(repo string, keyringPath string, distribution string, comp
 
 func UpdatePackageLists() error {
 	// Implementation for updating apt package lists
+	// Run `apt-get update`
+	cmd := exec.Command("apt-get", "update")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to update package lists: %w\nOutput: %s", err, output)
+	}
 	return nil
 }
 

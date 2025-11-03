@@ -26,6 +26,18 @@ var AptCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		err_2 := aptget.AddAptRepository("https://pkg.cloudflareclient.com/", "/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg", "jammy", "main", "/etc/apt/sources.list.d/cloudflare-client.list")
+		if err_2 != nil {
+			fmt.Printf("Error adding apt repository: %v\n", err_2)
+			os.Exit(1)
+		}
+
+		err_3 := aptget.UpdatePackageLists()
+		if err_3 != nil {
+			fmt.Printf("Error updating package lists: %v\n", err_3)
+			os.Exit(1)
+		}
+
 		err := aptget.InstallPackage(args)
 		if err != nil {
 			fmt.Printf("Error during installation: %v\n", err)
