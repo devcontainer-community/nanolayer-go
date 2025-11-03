@@ -235,8 +235,124 @@ func AddPpaRepository(ppa string) error {
 	return nil
 }
 
-func AddAptRepository(repo string) error {
-	// Implementation for adding a custom apt repository
+// AddAptRepository adds an APT repository to the system by creating a sources.list entry.
+// 
+// Parameters:
+//   - repo: Repository URL (e.g., "https://pkg.cloudflareclient.com/")
+//   - keyringPath: Path to the GPG keyring file for repository signing (empty string to skip)
+//   - distribution: Distribution codename (e.g., "jammy", "bookworm"). If empty, will attempt to detect
+//   - component: Repository component (e.g., "main", "contrib", "non-free")  
+//   - destination: Path where to write the sources.list file (e.g., "/etc/apt/sources.list.d/myrepo.list")
+//
+// Shell equivalent example:
+// echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] https://pkg.cloudflareclient.com/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/cloudflare-client.list
+func AddAptRepository(repo string, keyringPath string, distribution string, component string, destination string) error {
+	
+	if !isDebianLike() {
+		return fmt.Errorf("error: Command only supported on Debian-based distributions")
+	}
+
+	architecture := linuxsystem.GetArchitecture()
+	
+	// Convert the architecture to dpkg format
+	dpkgArch := ""
+	switch architecture {
+	case linuxsystem.ARM64:
+		dpkgArch = "arm64"
+	case linuxsystem.X86_64:
+		dpkgArch = "amd64"
+	case linuxsystem.ARMV7:
+		dpkgArch = "armhf"
+	case linuxsystem.I386:
+		dpkgArch = "i386"
+	default:
+		// For other architectures, use dpkg --print-architecture
+		cmd := exec.Command("dpkg", "--print-architecture")
+		output, err := cmd.Output()
+		if err != nil {
+			return fmt.Errorf("failed to get architecture from dpkg: %w", err)
+		}
+		dpkgArch = strings.TrimSpace(string(output))
+	}
+
+	// If distribution is empty, try to get it from lsb_release or fallback
+	if distribution == "" {
+		// Try lsb_release first
+		cmd := exec.Command("lsb_release", "-cs")
+		output, err := cmd.Output()
+		if err == nil {
+			distribution = strings.TrimSpace(string(output))
+		} else {
+			// Fallback based on detected distribution
+			switch linuxsystem.GetDistribution() {
+			case linuxsystem.Ubuntu:
+				distribution = "focal" // Default to a common Ubuntu release
+			case linuxsystem.Debian:
+				distribution = "bookworm" // Default to a common Debian release
+			default:
+				return fmt.Errorf("could not determine distribution codename and none provided")
+			}
+		}
+	}
+
+	// Construct the repository line
+	var repoLine string
+	if keyringPath != "" {
+		repoLine = fmt.Sprintf("deb [arch=%s signed-by=%s] %s %s %s\n", 
+			dpkgArch, keyringPath, repo, distribution, component)
+	} else {
+		repoLine = fmt.Sprintf("deb [arch=%s] %s %s %s\n", 
+			dpkgArch, repo, distribution, component)
+	}
+
+	// Ensure destination directory exists
+	destDir := filepath.Dir(destination)
+	if err := os.MkdirAll(destDir, 0o755); err != nil {
+		return fmt.Errorf("failed to create destination directory %s: %w", destDir, err)
+	}
+
+	// Write atomically: write to a temp file in same dir then rename
+	tmpFile, err := os.CreateTemp(destDir, "apt-repo-*")
+	if err != nil {
+		return fmt.Errorf("failed to create temp file in %s: %w", destDir, err)
+	}
+	tmpName := tmpFile.Name()
+	defer func() {
+		_ = tmpFile.Close()
+		_ = os.Remove(tmpName)
+	}()
+
+	if _, err := tmpFile.WriteString(repoLine); err != nil {
+		return fmt.Errorf("failed to write repository line to temp file: %w", err)
+	}
+	if err := tmpFile.Sync(); err != nil {
+		_ = tmpFile.Close()
+		return fmt.Errorf("failed to sync temp repository file: %w", err)
+	}
+	if err := tmpFile.Close(); err != nil {
+		return fmt.Errorf("failed to close temp repository file: %w", err)
+	}
+
+	// Try to rename into place; fallback to copy if rename fails (different FS)
+	if err := os.Rename(tmpName, destination); err != nil {
+		in, err2 := os.Open(tmpName)
+		if err2 != nil {
+			return fmt.Errorf("failed to move repository file to destination: %w", err)
+		}
+		defer in.Close()
+		out, err2 := os.Create(destination)
+		if err2 != nil {
+			return fmt.Errorf("failed to create destination file %s: %w", destination, err2)
+		}
+		if _, err2 = io.Copy(out, in); err2 != nil {
+			out.Close()
+			return fmt.Errorf("failed to copy repository file to destination: %w", err2)
+		}
+		if err2 = out.Close(); err2 != nil {
+			return fmt.Errorf("failed to close destination file %s: %w", destination, err2)
+		}
+	}
+
 	return nil
 }
 
